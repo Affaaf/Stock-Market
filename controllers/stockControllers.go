@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"Go_Assignment/m/constants"
 	"Go_Assignment/m/initializers"
 	"Go_Assignment/m/models"
 	"context"
@@ -11,12 +12,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var wg = sync.WaitGroup{}
 
 func Signup(c *gin.Context) {
-
 	type data struct {
 		Username string
 		Email    string
@@ -26,27 +27,35 @@ func Signup(c *gin.Context) {
 
 	var requestBody data
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		// Handle the error (e.g., return an error response)
-		c.JSON(400, gin.H{"error": "Invalid request"})
+		c.JSON(400, gin.H{"error": constants.InvalidRequest})
 		return
 	}
 
-	// Check if username already exists
 	var existingUser models.User
 	if err := initializers.DB.Where("username = ?", requestBody.Username).First(&existingUser).Error; err == nil {
-		c.JSON(409, gin.H{"error": "Username already exists"})
+		c.JSON(409, gin.H{"error": constants.UsernameExists})
 		return
 	}
 
-	// Create the user in the database
-	user := models.User{Username: requestBody.Username, Email: requestBody.Email, Balance: requestBody.Balance, Password: requestBody.Password}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(requestBody.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(500, gin.H{"error": constants.Failed})
+		return
+	}
+
+	user := models.User{
+		Username: requestBody.Username,
+		Email:    requestBody.Email,
+		Balance:  requestBody.Balance,
+		Password: string(hashedPassword),
+	}
 
 	if err := initializers.DB.Create(&user).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to create user"})
+		c.JSON(500, gin.H{"error": constants.FailedCreateUser})
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "User created successfully"})
+	c.JSON(201, gin.H{"message": constants.UserCreatedSuccessfully})
 }
 
 func Login(c *gin.Context) {
@@ -71,7 +80,7 @@ func Login(c *gin.Context) {
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("secret"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.CouldToken})
 		return
 	}
 
@@ -80,17 +89,13 @@ func Login(c *gin.Context) {
 
 func UserData(c *gin.Context) {
 	username := c.Param("username")
-	// Check if the user data is cached in Redis
 	cachedUserData, err := initializers.RedisClient.Get(context.Background(), username).Result()
 	if err == nil {
-		// Data found in cache, return it
 
 		var cachedUser models.User
-		// Unmarshal the cached user data from JSON
 		if err := json.Unmarshal([]byte(cachedUserData), &cachedUser); err != nil {
-			// Handle unmarshaling error
 			c.JSON(500, gin.H{
-				"error": "Failed to unmarshal cached user data",
+				"error": constants.FailedUnmarshalData,
 			})
 			return
 		}
@@ -100,21 +105,18 @@ func UserData(c *gin.Context) {
 		})
 		return
 	}
-	// Data not found in cache, fetch from the database
 	var user models.User
 	result := initializers.DB.First(&user, "username = ?", username)
 	if result.Error != nil {
 		c.JSON(404, gin.H{
-			"error": "User not found",
+			"error": constants.UserFound,
 		})
 		return
 	}
-	// Cache the user data in Redis for future requests
 	err = initializers.RedisClient.Set(context.Background(), username, user, 5*time.Minute).Err()
 	if err != nil {
-		// Handle Redis cache error
 		c.JSON(500, gin.H{
-			"error": "Failed to cache user data",
+			"error": constants.FailedCacheUserData,
 		})
 		return
 	}
@@ -135,7 +137,6 @@ func IngestStockData(c *gin.Context) {
 	}
 
 	if err := c.Bind(&body); err != nil {
-		// Handle the error (e.g., return an error response)
 		return
 	}
 	data := models.StockData{Ticker: body.Ticker, OpenPrice: body.OpenPrice, ClosePrice: body.ClosePrice, High: body.High, Low: body.Low, Volume: body.Volume}
@@ -146,21 +147,18 @@ func IngestStockData(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{
-		"mesage": "data inserted successfully",
+		"mesage": constants.DataSavedSuccessfully,
 		"data":   data,
 	})
 }
 func RetrieveAllStockData(c *gin.Context) {
 	cachedStockData, err := initializers.RedisClient.Get(context.Background(), "all_stock_data").Result()
 	if err == nil {
-		// Data found in cache, return it as JSON
 
 		var cachedData []models.StockData
-		// Unmarshal the cached stock data from JSON
 		if err := json.Unmarshal([]byte(cachedStockData), &cachedData); err != nil {
-			// Handle unmarshaling error
 			c.JSON(500, gin.H{
-				"error": "Failed to unmarshal cached stock data",
+				"error": constants.FailedUnmarshal,
 			})
 			return
 		}
@@ -176,26 +174,23 @@ func RetrieveAllStockData(c *gin.Context) {
 
 	if result.Error != nil {
 		c.JSON(404, gin.H{
-			"error": "Stock Data not found",
+			"error": constants.StockDatanotFound,
 		})
 		return
 	}
 
-	// Marshal the stock data to JSON before caching
 	serializedStockData, err := json.Marshal(data)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error": "Failed to marshal stock data",
+			"error": constants.FailedMarshalData,
 		})
 		return
 	}
 
-	// Cache the stock data in Redis for future requests
 	err = initializers.RedisClient.Set(context.Background(), "all_stock_data", string(serializedStockData), 5*time.Minute).Err()
 	if err != nil {
-		// Handle Redis cache error
 		c.JSON(500, gin.H{
-			"error": "Failed to cache stock data",
+			"error": constants.FailedCacheData,
 		})
 		return
 	}
@@ -212,7 +207,7 @@ func SpecificStockData(c *gin.Context) {
 
 	if result.Error != nil {
 		c.JSON(404, gin.H{
-			"error": "Stock not found",
+			"error": constants.StocknotFound,
 		})
 		return
 	}
@@ -229,7 +224,7 @@ func RetrieveTransactionsOfSpecificUser(c *gin.Context) {
 
 	if result.Error != nil {
 		c.JSON(404, gin.H{
-			"error": "Transactions data not found",
+			"error": constants.TransactionsFound,
 		})
 		return
 	}
@@ -248,7 +243,7 @@ func Transaction(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request"})
+		c.JSON(400, gin.H{"error": constants.InvalidRequest})
 		return
 	}
 
@@ -256,19 +251,22 @@ func Transaction(c *gin.Context) {
 	result := initializers.DB.First(&stock, "ticker = ?", body.Ticker)
 
 	if result.Error != nil {
-		c.JSON(404, gin.H{"error": "No record found for the provided ticker"})
+		c.JSON(404, gin.H{"error": constants.RecordfoundProvided})
 		return
 	}
 	wg.Add(1)
 	go func() {
 		time.Sleep(10 * time.Second)
-		transcation_type := body.TransactionType
-		transaction_price := 0.0 // Initialize transaction_price
+		transaction_price := 0.0
+		transcation_t := body.TransactionType
+		var transcation_type models.TransactionType
+		if transcation_t == "sell" {
+			transcation_type = models.Sell
 
-		if transcation_type == "sell" {
 			high_price := stock.High
 			transaction_price = high_price * float64(body.TransactionVolume)
 		} else {
+			transcation_type = models.Buy
 			low_price := stock.Low
 			transaction_price = low_price * float64(body.TransactionVolume)
 		}
@@ -278,7 +276,7 @@ func Transaction(c *gin.Context) {
 		initializers.DB.First(&user, id)
 
 		if user.Balance < transaction_price {
-			c.JSON(400, gin.H{"error": "Your balance is less than your transaction"})
+			c.JSON(400, gin.H{"error": constants.LessbalanceTransaction})
 			return
 		}
 
@@ -288,21 +286,20 @@ func Transaction(c *gin.Context) {
 		transaction := models.Transaction{
 			UserID:            body.UserID,
 			Ticker:            body.Ticker,
-			TransactionType:   body.TransactionType,
+			TransactionType:   transcation_type,
 			TransactionVolume: body.TransactionVolume,
 			TransactionPrice:  transaction_price,
 		}
 
 		if err := initializers.DB.Create(&transaction).Error; err != nil {
-			c.JSON(400, gin.H{"error": "Transaction error"})
+			c.JSON(400, gin.H{"error": constants.TransactionError})
 			return
 		}
 		wg.Done()
-		// Log transaction success or failure
 	}()
 
 	c.JSON(200, gin.H{
-		"message": "Transaction processing started in the background",
+		"message": constants.TransactionProcessing,
 	})
 	wg.Wait()
 }
@@ -312,24 +309,23 @@ func TransactionsTimestemps(c *gin.Context) {
 	startTimestamp := c.Param("start_timestamp")
 	endTimestamp := c.Param("end_timestamp")
 
-	// Convert the timestamps to time.Time objects
 	input_layout := "2006-01-02"
 	startTime, err := time.Parse(input_layout, startTimestamp)
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid start timestamp"})
+		c.JSON(400, gin.H{"error": constants.InvalidsTime})
 		return
 	}
 
 	endTime, err := time.Parse(input_layout, endTimestamp)
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid end timestamp"})
+		c.JSON(400, gin.H{"error": constants.InvalidTime})
 		return
 	}
 
 	var transactions []models.Transaction
 	result := initializers.DB.Where("user_id = ? AND created_at BETWEEN ? AND ?", userID, startTime, endTime).Find(&transactions)
 	if result.Error != nil {
-		c.JSON(500, gin.H{"error": "Failed to retrieve transactions"})
+		c.JSON(500, gin.H{"error": constants.Error})
 		return
 	}
 

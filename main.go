@@ -39,16 +39,14 @@ func main() {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authorizationHeader := c.GetHeader("Authorization")
-		// Split the Authorization header to extract the token
 		bearerToken := strings.Split(authorizationHeader, " ")
 		if len(bearerToken) != 2 {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Malformed token"})
 			c.Abort()
 			return
 		}
-		tokenString := bearerToken[1] // Extract the actual token from the "Bearer <token>" format
+		tokenString := bearerToken[1]
 		token, err := jwt.ParseWithClaims(tokenString, &models.JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-			// Make sure that the token method conforms to "SigningMethodHMAC"
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
