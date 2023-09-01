@@ -24,4 +24,5 @@ const (
 	FailedCreateUser        = "Failed to create user"
 	UsernameExists          = "Username already exists"
 	Failed                  = "Failed to hash password"
+	InvalidCredentials      = "Invalid credentials"
 )

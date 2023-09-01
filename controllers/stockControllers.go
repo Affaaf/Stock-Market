@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -68,8 +69,19 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	var foundUser models.User
-	initializers.DB.Where("username = ?", user.Username).First(&foundUser)
+	if err := initializers.DB.Where("username = ?", user.Username).First(&foundUser).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": constants.UserFound})
+			return
+		}
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.InvalidCredentials})
+		return
+	}
 
 	claims := models.JWTClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -151,6 +163,7 @@ func IngestStockData(c *gin.Context) {
 		"data":   data,
 	})
 }
+
 func RetrieveAllStockData(c *gin.Context) {
 	cachedStockData, err := initializers.RedisClient.Get(context.Background(), "all_stock_data").Result()
 	if err == nil {

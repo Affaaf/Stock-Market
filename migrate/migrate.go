@@ -8,12 +8,11 @@ import (
 func init() {
 	initializers.LoadEnvVariables()
 	initializers.ConnectToDb()
+	initializers.ConnectToTestDb()
+
 }
 
 func main() {
 
-	initializers.DB.AutoMigrate(&models.Transaction{})
-	//&models.User{}, &models.Transaction{}
-	// &models.StockData{}
-
+	initializers.DB.AutoMigrate(&models.User{}, &models.Transaction{}, &models.StockData{})
 }

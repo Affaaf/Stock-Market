@@ -7,6 +7,8 @@ This Git repository is a comprehensive stock market simulation application. It p
 - [Installation](#installation)
 - [User Authentication](#UserAuthentication)
 - [Postman Collection](#PostmanCollection)
+- [Test Cases](#TestCases)
+
 
 ### Clone Repository
 ```
@@ -34,3 +36,6 @@ go run migrate/migrate.go
 ### Postman Collection
 
 [Postman Collection](https://drive.google.com/file/d/1V3WC91Be8ZUNlEfCTIF2qulH14tT3CKt/view?usp=sharing)
+
+### Test Cases
+```go test```
