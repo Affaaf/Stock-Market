@@ -28,6 +28,11 @@ go get -d -v $(cat dependencies.txt)
 go run migrate/migrate.go
 ``` 
 
+### Create Build
+```
+go build -o Go_Assignment
+```
+
 ### Run Server
 ```
 ./Go_Assignment
