@@ -18,13 +18,29 @@ import (
 
 var wg = sync.WaitGroup{}
 
+// Signup godoc
+// @Summary Create a new user
+// @Description Create a new user with the provided information
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param username body string true "Username of the user"
+// @Param email body string true "Email of the user"
+// @Param balance body float64 true "Initial balance of the user"
+// @Param password body string true "Password for the user"
+// @Success 201 {string} string "User created successfully"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 409 {object} map[string]string "Username already exists"
+// @Failure 500 {object} map[string]string "Failed to create user"
+// @Router /signup [post]
+type data struct {
+	Username string
+	Email    string
+	Balance  float64
+	Password string
+}
+
 func Signup(c *gin.Context) {
-	type data struct {
-		Username string
-		Email    string
-		Balance  float64
-		Password string
-	}
 
 	var requestBody data
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
@@ -59,11 +75,27 @@ func Signup(c *gin.Context) {
 	c.JSON(201, gin.H{"message": constants.UserCreatedSuccessfully})
 }
 
+// Login godoc
+// @Summary Authenticate a user
+// @Description Authenticate a user by checking their username and password
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param username formData string true "Username of the user"
+// @Param password formData string true "Password for the user"
+// @Success 200 {object} map[string]string "Authentication successful"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Invalid credentials"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /login [post]
+
+var user struct {
+	Username string `form:"username"`
+	Password string `form:"password"`
+}
+
 func Login(c *gin.Context) {
-	var user struct {
-		Username string `form:"username"`
-		Password string `form:"password"`
-	}
 
 	if err := c.ShouldBind(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -99,6 +131,17 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
+// UserData godoc
+// @Summary Get user data
+// @Description Retrieve user data by username
+// @Tags Users
+// @Param username path string true "Username of the user"
+// @Produce json
+// @Success 200 {object} map[string]interface{} "User data"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /users/{username} [get]
+
 func UserData(c *gin.Context) {
 	username := c.Param("username")
 	cachedUserData, err := initializers.RedisClient.Get(context.Background(), username).Result()
@@ -106,9 +149,7 @@ func UserData(c *gin.Context) {
 
 		var cachedUser models.User
 		if err := json.Unmarshal([]byte(cachedUserData), &cachedUser); err != nil {
-			c.JSON(500, gin.H{
-				"error": constants.FailedUnmarshalData,
-			})
+			c.JSON(500, gin.H{"error": constants.FailedUnmarshalData})
 			return
 		}
 
@@ -120,16 +161,12 @@ func UserData(c *gin.Context) {
 	var user models.User
 	result := initializers.DB.First(&user, "username = ?", username)
 	if result.Error != nil {
-		c.JSON(404, gin.H{
-			"error": constants.UserFound,
-		})
+		c.JSON(404, gin.H{"error": constants.UserFound})
 		return
 	}
 	err = initializers.RedisClient.Set(context.Background(), username, user, 5*time.Minute).Err()
 	if err != nil {
-		c.JSON(500, gin.H{
-			"error": constants.FailedCacheUserData,
-		})
+		c.JSON(500, gin.H{"error": constants.FailedCacheUserData})
 		return
 	}
 
@@ -138,20 +175,39 @@ func UserData(c *gin.Context) {
 	})
 }
 
-func IngestStockData(c *gin.Context) {
-	var body struct {
-		Ticker     string
-		OpenPrice  float64
-		ClosePrice float64
-		High       float64
-		Low        float64
-		Volume     int
-	}
+// IngestStockData godoc
+// @Summary Ingest stock data
+// @Description Ingest stock data for a specific ticker symbol
+// @Tags Stocks
+// @Accept json
+// @Produce json
+// @Param body body struct {
+//   Ticker     string  `json:"ticker" binding:"required" example:"AAPL"`
+//   OpenPrice  float64 `json:"openPrice" binding:"required" example:"150.0"`
+//   ClosePrice float64 `json:"closePrice" binding:"required" example:"152.0"`
+//   High       float64 `json:"high" binding:"required" example:"155.0"`
+//   Low        float64 `json:"low" binding:"required" example:"148.0"`
+//   Volume     int     `json:"volume" binding:"required" example:"10000"`
+// }
+// @Success 200 {object} map[string]interface{} "Data saved successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Router /stocks [post]
 
-	if err := c.Bind(&body); err != nil {
+var payload struct {
+	Ticker     string
+	OpenPrice  float64
+	ClosePrice float64
+	High       float64
+	Low        float64
+	Volume     int
+}
+
+func IngestStockData(c *gin.Context) {
+
+	if err := c.Bind(&payload); err != nil {
 		return
 	}
-	data := models.StockData{Ticker: body.Ticker, OpenPrice: body.OpenPrice, ClosePrice: body.ClosePrice, High: body.High, Low: body.Low, Volume: body.Volume}
+	data := models.StockData{Ticker: payload.Ticker, OpenPrice: payload.OpenPrice, ClosePrice: payload.ClosePrice, High: payload.High, Low: payload.Low, Volume: payload.Volume}
 	result := initializers.DB.Create(&data)
 
 	if result.Error != nil {
@@ -170,15 +226,11 @@ func RetrieveAllStockData(c *gin.Context) {
 
 		var cachedData []models.StockData
 		if err := json.Unmarshal([]byte(cachedStockData), &cachedData); err != nil {
-			c.JSON(500, gin.H{
-				"error": constants.FailedUnmarshal,
-			})
+			c.JSON(500, gin.H{"error": constants.FailedUnmarshal})
 			return
 		}
 
-		c.JSON(200, gin.H{
-			"data": cachedData,
-		})
+		c.JSON(200, gin.H{"data": cachedData})
 		return
 	}
 
@@ -186,25 +238,19 @@ func RetrieveAllStockData(c *gin.Context) {
 	result := initializers.DB.Find(&data)
 
 	if result.Error != nil {
-		c.JSON(404, gin.H{
-			"error": constants.StockDatanotFound,
-		})
+		c.JSON(404, gin.H{"error": constants.StockDatanotFound})
 		return
 	}
 
 	serializedStockData, err := json.Marshal(data)
 	if err != nil {
-		c.JSON(500, gin.H{
-			"error": constants.FailedMarshalData,
-		})
+		c.JSON(500, gin.H{"error": constants.FailedMarshalData})
 		return
 	}
 
 	err = initializers.RedisClient.Set(context.Background(), "all_stock_data", string(serializedStockData), 5*time.Minute).Err()
 	if err != nil {
-		c.JSON(500, gin.H{
-			"error": constants.FailedCacheData,
-		})
+		c.JSON(500, gin.H{"error": constants.FailedCacheData})
 		return
 	}
 
@@ -219,15 +265,11 @@ func SpecificStockData(c *gin.Context) {
 	result := initializers.DB.Find(&stock, "ticker = ?", ticker)
 
 	if result.Error != nil {
-		c.JSON(404, gin.H{
-			"error": constants.StocknotFound,
-		})
+		c.JSON(404, gin.H{"error": constants.StocknotFound})
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"ticker": stock,
-	})
+	c.JSON(200, gin.H{"ticker": stock})
 }
 
 func RetrieveTransactionsOfSpecificUser(c *gin.Context) {
@@ -236,55 +278,50 @@ func RetrieveTransactionsOfSpecificUser(c *gin.Context) {
 	result := initializers.DB.Find(&transaction, "user_id = ?", user_id)
 
 	if result.Error != nil {
-		c.JSON(404, gin.H{
-			"error": constants.TransactionsFound,
-		})
+		c.JSON(404, gin.H{"error": constants.TransactionsFound})
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"transaction": transaction,
-	})
+	c.JSON(200, gin.H{"transaction": transaction})
+}
+
+var transaction_data struct {
+	UserID            uint
+	Ticker            string
+	TransactionType   string
+	TransactionVolume int
 }
 
 func Transaction(c *gin.Context) {
-	var body struct {
-		UserID            uint
-		Ticker            string
-		TransactionType   string
-		TransactionVolume int
-	}
-
-	if err := c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindJSON(&transaction_data); err != nil {
 		c.JSON(400, gin.H{"error": constants.InvalidRequest})
 		return
 	}
 
 	var stock models.StockData
-	result := initializers.DB.First(&stock, "ticker = ?", body.Ticker)
+	result := initializers.DB.First(&stock, "ticker = ?", transaction_data.Ticker)
 
 	if result.Error != nil {
 		c.JSON(404, gin.H{"error": constants.RecordfoundProvided})
 		return
 	}
-	wg.Add(1)
+
 	go func() {
 		time.Sleep(10 * time.Second)
 		transaction_price := 0.0
-		transcation_t := body.TransactionType
+		transcation_t := transaction_data.TransactionType
 		var transcation_type models.TransactionType
 		if transcation_t == "sell" {
 			transcation_type = models.Sell
-
 			high_price := stock.High
-			transaction_price = high_price * float64(body.TransactionVolume)
+			transaction_price = high_price * float64(transaction_data.TransactionVolume)
 		} else {
 			transcation_type = models.Buy
 			low_price := stock.Low
-			transaction_price = low_price * float64(body.TransactionVolume)
+			transaction_price = low_price * float64(transaction_data.TransactionVolume)
 		}
 
-		id := body.UserID
+		id := transaction_data.UserID
 		var user models.User
 		initializers.DB.First(&user, id)
 
@@ -297,10 +334,10 @@ func Transaction(c *gin.Context) {
 		initializers.DB.Model(&user).Updates(models.User{Balance: balance})
 
 		transaction := models.Transaction{
-			UserID:            body.UserID,
-			Ticker:            body.Ticker,
+			UserID:            transaction_data.UserID,
+			Ticker:            transaction_data.Ticker,
 			TransactionType:   transcation_type,
-			TransactionVolume: body.TransactionVolume,
+			TransactionVolume: transaction_data.TransactionVolume,
 			TransactionPrice:  transaction_price,
 		}
 
@@ -308,13 +345,9 @@ func Transaction(c *gin.Context) {
 			c.JSON(400, gin.H{"error": constants.TransactionError})
 			return
 		}
-		wg.Done()
 	}()
 
-	c.JSON(200, gin.H{
-		"message": constants.TransactionProcessing,
-	})
-	wg.Wait()
+	c.JSON(200, gin.H{"message": constants.TransactionProcessing})
 }
 
 func TransactionsTimestemps(c *gin.Context) {

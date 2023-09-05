@@ -1,6 +1,8 @@
 package main
 
 import (
+	_ "Go_Assignment/m/docs"
+
 	"Go_Assignment/m/controllers"
 	"Go_Assignment/m/initializers"
 	"Go_Assignment/m/models"
@@ -11,19 +13,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func init() {
+
 	initializers.LoadEnvVariables()
 	initializers.ConnectToDb()
 	initializers.RedisConfig()
 }
 
+// @title Tag Service API
+// @version 2.0
+// @description 	A Tag Service Api
+// @host localhost:3030
+// @BasePath /api
+
 func main() {
 	r := gin.Default()
+	r.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	r.POST("/signup", controllers.Signup)
 	r.POST("/login", controllers.Login)
-	r.Use(AuthMiddleware())
+	// r.Use(AuthMiddleware())
 	r.GET("/userdata/:username", controllers.UserData)
 	r.POST("/ingeststockdata", controllers.IngestStockData)
 	r.GET("/retrieve-stock-data", controllers.RetrieveAllStockData)

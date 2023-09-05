@@ -26,8 +26,8 @@ var RedisClient *redis.Client
 
 func RedisConfig() {
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Redis server address
-		Password: "",               // No password by default
-		DB:       0,                // Default DB
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
 	})
 }
