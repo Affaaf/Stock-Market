@@ -1,0 +1,119 @@
+basePath: /api
+host: localhost:3030
+info:
+  contact: {}
+  description: A Tag Service Api
+  title: Tag Service API
+  version: "2.0"
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a user by checking their username and password
+      parameters:
+      - description: Username of the user
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: Password for the user
+        in: formData
+        name: password
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Authenticate a user
+      tags:
+      - Authentication
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with the provided information
+      parameters:
+      - description: Username of the user
+        in: body
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: Email of the user
+        in: body
+        name: email
+        required: true
+        schema:
+          type: string
+      - description: Initial balance of the user
+        in: body
+        name: balance
+        required: true
+        schema:
+          type: number
+      - description: Password for the user
+        in: body
+        name: password
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Username already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to create user
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new user
+      tags:
+      - Users
+swagger: "2.0"
