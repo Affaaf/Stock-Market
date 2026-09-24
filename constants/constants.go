@@ -1,0 +1,28 @@
+package constants
+
+const (
+	Error                   = "Failed to retrieve transactions"
+	InvalidTime             = "Invalid end timestamp"
+	InvalidsTime            = "Invalid start timestamp"
+	TransactionProcessing   = "Transaction processing started in the background"
+	TransactionError        = "Transaction error"
+	LessbalanceTransaction  = "Your balance is less than your transaction"
+	RecordfoundProvided     = "No record found for the provided ticker"
+	InvalidRequest          = "Invalid request"
+	TransactionsFound       = "Transactions data not found"
+	StocknotFound           = "Stock not found"
+	FailedCacheData         = "Failed to cache stock data"
+	FailedMarshalData       = "Failed to marshal stock data"
+	StockDatanotFound       = "Stock Data not found"
+	FailedUnmarshal         = "Failed to unmarshal cached stock data"
+	DataSavedSuccessfully   = "Data saved successfully"
+	FailedCacheUserData     = "Failed to cache user data"
+	UserFound               = "User not found"
+	FailedUnmarshalData     = "Failed to unmarshal cached user data"
+	CouldToken              = "Could not generate token"
+	UserCreatedSuccessfully = "User created successfully"
+	FailedCreateUser        = "Failed to create user"
+	UsernameExists          = "Username already exists"
+	Failed                  = "Failed to hash password"
+	InvalidCredentials      = "Invalid credentials"
+)
